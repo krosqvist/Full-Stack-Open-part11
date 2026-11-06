@@ -40,3 +40,41 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DEFAULT_BUMP: patch
           NONE_STRING_TOKEN: '#skip'
+
+  discord_notification:
+    needs: [simple_deployment_pipeline, tag_release]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Discord - Deployment successful
+        if: ${{ needs.simple_deployment_pipeline.result == 'success' && needs.tag_release.result == 'success' && github.event_name == 'push' && !contains(join(github.event.commits.*.message, ' '), '#skip') }}
+        uses: sarisia/actions-status-discord@v1
+        with:
+          webhook: ${{ secrets.DISCORD_WEBHOOK }}
+          status: Success
+          title: "Deployment successful"
+          description: |
+            A new version deployed to production
+            Commit: ${{ github.sha }}
+            Message: ${{ github.event.head_commit.message || github.event.pull_request.title || 'Not available' }}
+            Author: ${{ github.actor }}          
+          color: 0x00ff00
+
+
+      - name: Discord - Build or deployment failed
+        if: ${{ needs.simple_deployment_pipeline.result == 'failure' || needs.tag_release.result == 'failure' }}
+        uses: sarisia/actions-status-discord@v1
+        with:
+          webhook: ${{ secrets.DISCORD_WEBHOOK }}
+          status: Failure
+          title: "Build or deployment failed"
+          description: |
+            Something went wrong in the deployment pipeline.
+            Repository: ${{ github.repository }}
+            Branch: ${{ github.ref_name }}
+            Commit: ${{ github.sha }}
+            Message: ${{ github.event.head_commit.message || github.event.pull_request.title || 'Not available' }}
+            Author: ${{ github.actor }}
+            [View Commit](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }})
+            [View Workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+          color: 0xff0000
