@@ -64,8 +64,8 @@ jobs:
           color: 0x00ff00
 
   notify_failure:
-    needs: [build_and_test, deploy, tag_release, notify_success]
-    if: ${{ always() && (needs.build_and_test.result == 'failure' || needs.deploy.result == 'failure' || needs.tag_release.result == 'failure' || needs.notify_success.result == 'failure') }}
+    needs: [build_and_test, deploy]
+    if: ${{ always() && (needs.build_and_test.result == 'failure' || needs.deploy.result == 'failure') }}
     runs-on: ubuntu-latest
     steps:
       - name: Discord - Build or deployment failed
