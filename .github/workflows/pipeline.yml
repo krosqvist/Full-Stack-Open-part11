@@ -47,7 +47,7 @@ jobs:
           NONE_STRING_TOKEN: '#skip'
 
   notify_success:
-    needs: [deploy, tag_release]
+    needs: [deploy]
     runs-on: ubuntu-latest
     steps:
       - name: Discord - Deployment successful
