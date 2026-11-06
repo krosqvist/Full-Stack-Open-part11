@@ -1,3 +1,4 @@
+
 name: Deployment pipeline
 
 on:
@@ -9,28 +10,33 @@ on:
     types: [opened, synchronize]
 
 jobs:
-  simple_deployment_pipeline:    
-    runs-on: ubuntu-latest    
-    steps:      
+  build_and_test:
+    runs-on: ubuntu-latest
+    steps:
       - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6        
-        with:          
+      - uses: actions/setup-node@v6
+        with:
           node-version: '24'
-      - name: Install dependencies        
+      - name: Install dependencies
         run: npm install
-      - name: Check style        
+      - name: Check style
         run: npm run eslint
       - name: Run npm test
         run: npm test
       - name: Run npm build
         run: npm run build
+
+  deploy:
+    needs: [build_and_test]
+    if: ${{ github.event_name == 'push' && !contains(join(github.event.commits.*.message, ' '), '#skip') }}
+    runs-on: ubuntu-latest
+    steps:
       - name: Trigger deployment
-        if: ${{ github.event_name == 'push' && !contains(join(github.event.commits.*.message, ' '), '#skip') }}
         run: curl ${{ secrets.RENDER_DEPLOY_HOOK }}
 
-  tag_release:
-    needs: [simple_deployment_pipeline]
-    if: ${{ github.event_name == 'push' && !contains(join(github.event.commits.*.message, ' '), '#skip') }}
+  notify_success:
+    needs: [deploy]
+    if: ${{ needs.deploy.result == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -41,13 +47,7 @@ jobs:
           DEFAULT_BUMP: patch
           NONE_STRING_TOKEN: '#skip'
 
-  discord_notification:
-    needs: [simple_deployment_pipeline, tag_release]
-    if: always()
-    runs-on: ubuntu-latest
-    steps:
       - name: Discord - Deployment successful
-        if: ${{ needs.simple_deployment_pipeline.result == 'success' && needs.tag_release.result == 'success' && github.event_name == 'push' && !contains(join(github.event.commits.*.message, ' '), '#skip') }}
         uses: sarisia/actions-status-discord@v1
         with:
           webhook: ${{ secrets.DISCORD_WEBHOOK }}
@@ -56,13 +56,16 @@ jobs:
           description: |
             A new version deployed to production
             Commit: ${{ github.sha }}
-            Message: ${{ github.event.head_commit.message || github.event.pull_request.title || 'Not available' }}
-            Author: ${{ github.actor }}          
+            Message: ${{ github.event.head_commit.message || 'Not available' }}
+            Author: ${{ github.actor }}
           color: 0x00ff00
 
-
+  notify_failure:
+    needs: [build_and_test, deploy, notify_success]
+    if: ${{ always() && (needs.build_and_test.result == 'failure' || needs.deploy.result == 'failure' || needs.notify_success.result == 'failure') }}
+    runs-on: ubuntu-latest
+    steps:
       - name: Discord - Build or deployment failed
-        if: ${{ needs.simple_deployment_pipeline.result == 'failure' || needs.tag_release.result == 'failure' }}
         uses: sarisia/actions-status-discord@v1
         with:
           webhook: ${{ secrets.DISCORD_WEBHOOK }}
