@@ -77,4 +77,4 @@ jobs:
             Author: ${{ github.actor }}
             [View Commit](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }})
             [View Workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
-        color: 0xff0000
+          color: 0xff0000
